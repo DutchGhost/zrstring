@@ -5,12 +5,12 @@ const ffi = struct {
         cap: usize,
     };
 
-    extern fn string_new(s: *FFIString) void;
-    extern fn string_drop(s: *FFIString) void;
-    extern fn string_push(s: *FFIString, ch: u32) void;
+    extern fn string_new() FFIString;
+    extern fn string_drop(noalias s: *FFIString) void;
+    extern fn string_push(noalias s: *FFIString, ch: u32) void;
     extern fn string_len(s: *const FFIString) usize;
     extern fn string_ptr(s: *const FFIString) *const u8;
-    extern fn string_push_str(s: *FFIString, ptr: *const u8, len: usize) void;
+    extern fn string_push_str(noalias s: *FFIString, ptr: *const u8, len: usize) void;
 };
 
 pub const String = struct {
@@ -18,28 +18,26 @@ pub const String = struct {
 
     const Self = @This();
 
-    pub fn init() Self {
-        var this: Self = undefined;
-
-        ffi.string_new(&this.inner);
-
-        return this;
+    fn asPtr(self: *const Self) *const u8 {
+        return ffi.string_ptr(&self.inner);
     }
 
-    pub fn deinit(self: *Self) void {
+    pub fn init() Self {
+        const ffistring = ffi.string_new();
+
+        return .{ .inner = ffistring };
+    }
+
+    pub fn deinit(noalias self: *Self) void {
         ffi.string_drop(&self.inner);
     }
 
-    pub fn push(self: *Self, ch: u32) void {
+    pub fn push(noalias self: *Self, ch: u32) void {
         ffi.string_push(&self.inner, ch);
     }
 
     pub fn len(self: *const Self) usize {
         return ffi.string_len(&self.inner);
-    }
-
-    pub fn asPtr(self: *const Self) *const u8 {
-        return ffi.string_ptr(&self.inner);
     }
 
     pub fn asSlice(self: *const Self) []const u8 {
@@ -50,7 +48,7 @@ pub const String = struct {
         return ptr[0..self_len];
     }
 
-    pub fn pushStr(self: *Self, str: []const u8) void {
+    pub fn pushStr(noalias self: *Self, str: []const u8) void {
         ffi.string_push_str(&self.inner, @ptrCast(*const u8, str.ptr), str.len);
     }
 };
